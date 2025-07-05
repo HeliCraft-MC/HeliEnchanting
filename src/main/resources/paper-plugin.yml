@@ -1,0 +1,7 @@
+name: HeliEnchanting
+version: '1.0-SNAPSHOT'
+main: ru.helicraft.helienchanting.HeliEnchanting
+bootstrapper: ru.helicraft.helienchanting.bootstrap.HeliEnchantingBootstrap
+api-version: '1.21'
+authors: [ ms0ur ]
+description: ''
