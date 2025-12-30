@@ -21,7 +21,7 @@ import java.util.Set;
 /**
  * Drill — «Бур» (Area Mining).
  * <p>
- * Уровень I — 2×1, II — 2×3, III — 3×3, IV — 3×5, V — 5×5.
+ * Уровень I — 1×2, II — 3×2, III — 3×3, IV — 5×3, V — 5×5.
  */
 public final class DrillEnchant {
 
@@ -50,7 +50,7 @@ public final class DrillEnchant {
         /* ------- 2. Добавляем Drill в ванильные теги ---------- */
         ctx.getLifecycleManager().registerEventHandler(
                 LifecycleEvents.TAGS.postFlatten(RegistryKey.ENCHANTMENT),
-                (ReloadableRegistrarEvent<PostFlattenTagRegistrar<Enchantment>> event) -> {
+                (ReloadableRegistrarEvent<@NotNull PostFlattenTagRegistrar<Enchantment>> event) -> {
                     PostFlattenTagRegistrar<Enchantment> reg = event.registrar();
 
                     reg.addToTag(EnchantmentTagKeys.IN_ENCHANTING_TABLE,
