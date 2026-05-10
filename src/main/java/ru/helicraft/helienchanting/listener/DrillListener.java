@@ -33,10 +33,8 @@ import java.util.Set;
 
 public final class DrillListener implements Listener {
 
-    /** Флаг, предотвращающий рекурсивное бурение. */
     private static final String META_DRILLING = "helienchanting:drilling";
 
-    /** level → {width, height}. */
     private static final Map<Integer, int[]> LEVELS = new HashMap<>();
     static {
         LEVELS.put(1, new int[]{1, 2});
@@ -46,7 +44,6 @@ public final class DrillListener implements Listener {
         LEVELS.put(5, new int[]{5, 5});
     }
 
-    /** Материалы, которые всегда запрещено бурить. */
     private static final Set<Material> UNBREAKABLE = Set.of(
             Material.BEDROCK,
             Material.BARRIER,
@@ -64,51 +61,6 @@ public final class DrillListener implements Listener {
             Material.NETHER_PORTAL
     );
 
-    /** Разрешённые блоки для бурения (камень, сланец и т.д.). */
-    private static final Set<Material> DRILL_WHITELIST = Set.of(
-            Material.STONE,
-            Material.DEEPSLATE,
-            Material.GRANITE,
-            Material.DIORITE,
-            Material.ANDESITE,
-            Material.TUFF,
-            Material.CALCITE,
-            Material.DRIPSTONE_BLOCK,
-            Material.NETHERRACK,
-            Material.BASALT,
-            Material.SMOOTH_BASALT,
-            Material.BLACKSTONE,
-            Material.END_STONE,
-            Material.COBBLESTONE,
-            Material.COBBLED_DEEPSLATE,
-            Material.MOSSY_COBBLESTONE,
-            Material.AMETHYST_BLOCK,
-            // Руды
-            Material.COAL_ORE,
-            Material.DEEPSLATE_COAL_ORE,
-            Material.IRON_ORE,
-            Material.DEEPSLATE_IRON_ORE,
-            Material.COPPER_ORE,
-            Material.DEEPSLATE_COPPER_ORE,
-            Material.GOLD_ORE,
-            Material.DEEPSLATE_GOLD_ORE,
-            Material.NETHER_GOLD_ORE,
-            Material.REDSTONE_ORE,
-            Material.DEEPSLATE_REDSTONE_ORE,
-            Material.EMERALD_ORE,
-            Material.DEEPSLATE_EMERALD_ORE,
-            Material.LAPIS_ORE,
-            Material.DEEPSLATE_LAPIS_ORE,
-            Material.DIAMOND_ORE,
-            Material.DEEPSLATE_DIAMOND_ORE,
-            Material.NETHER_QUARTZ_ORE,
-            Material.ANCIENT_DEBRIS,
-            Material.GILDED_BLACKSTONE,
-            Material.RAW_IRON_BLOCK,
-            Material.RAW_GOLD_BLOCK,
-            Material.RAW_COPPER_BLOCK
-    );
-
     private final JavaPlugin plugin;
 
     private static final Registry<Enchantment> ENCHANT_REG =
@@ -122,7 +74,6 @@ public final class DrillListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onBreak(BlockBreakEvent event) {
-        // защита от пере-вызова
         if (event.getPlayer().hasMetadata(META_DRILLING)) return;
 
         ItemStack tool = event.getPlayer().getInventory().getItemInMainHand();
@@ -131,7 +82,6 @@ public final class DrillListener implements Listener {
         int level = tool.getEnchantmentLevel(DRILL);
         if (level <= 0) return;
 
-        // точный режим при зажатом Shift
         if (event.getPlayer().isSneaking()) return;
 
         int[] dims = LEVELS.get(level);
@@ -139,6 +89,9 @@ public final class DrillListener implements Listener {
 
         int width = dims[0];
         int height = dims[1];
+        
+        // ГЛУБИНА: на сколько блоков вперед пробивает бур
+        int depth = (level > 3) ? 2 : 1; 
 
         int rW = (width - 1) / 2;
         int up = (height - 1) / 2;
@@ -147,45 +100,36 @@ public final class DrillListener implements Listener {
         Block origin = event.getBlock();
         Location loc = origin.getLocation();
 
-        // определяем плоскость бурения
         double pitch = event.getPlayer().getPitch();
         float yaw = event.getPlayer().getYaw();
         while (yaw <= -180) yaw += 360;
         while (yaw > 180) yaw -= 360;
 
         boolean vertical = Math.abs(pitch) > 60;
-
         int minX, maxX, minY, maxY, minZ, maxZ;
-
         boolean direction = Math.abs(yaw) > 45 && Math.abs(yaw) < 135;
+
         if (vertical) {
-            minY = 0; maxY = 0;
+            minY = (pitch > 0) ? -depth : 0; 
+            maxY = (pitch > 0) ? 0 : depth;
             if (direction) {
-                // East/West
                 minZ = -rW; maxZ = rW;
-                if (yaw > 0) { // West
-                    minX = -up; maxX = down;
-                } else { // East
-                    minX = -down; maxX = up;
-                }
+                minX = (yaw > 0) ? -up : -down; 
+                maxX = (yaw > 0) ? down : up;
             } else {
-                // North/South
                 minX = -rW; maxX = rW;
-                if (Math.abs(yaw) > 135) { // North
-                    minZ = -up; maxZ = down;
-                } else { // South
-                    minZ = -down; maxZ = up;
-                }
+                minZ = (Math.abs(yaw) > 135) ? -up : -down;
+                maxZ = (Math.abs(yaw) > 135) ? down : up;
             }
         } else {
             minY = -down; maxY = up;
             if (direction) {
-                // East/West
-                minX = 0; maxX = 0;
+                minX = (yaw > 0) ? -depth : 0; 
+                maxX = (yaw > 0) ? 0 : depth;
                 minZ = -rW; maxZ = rW;
             } else {
-                // North/South
-                minZ = 0; maxZ = 0;
+                minZ = (Math.abs(yaw) > 135) ? -depth : 0;
+                maxZ = (Math.abs(yaw) > 135) ? 0 : depth;
                 minX = -rW; maxX = rW;
             }
         }
@@ -198,13 +142,11 @@ public final class DrillListener implements Listener {
                     for (int dz = minZ; dz <= maxZ; dz++) {
                         if (dx == 0 && dy == 0 && dz == 0) continue;
                         Block b = loc.clone().add(dx, dy, dz).getBlock();
+                        
                         if (!canBreak(b, tool)) continue;
                         
-                        // Spawn flame particles
                         spawnFlameParticle(b.getLocation().add(0.5, 0.5, 0.5));
-                        
-                        b.breakNaturally(tool, true); // вызовет своё BlockBreakEvent, которое мы пропустим
-
+                        b.breakNaturally(tool, true); 
                         broken_blocks++;
                     }
                 }
@@ -213,9 +155,7 @@ public final class DrillListener implements Listener {
             event.getPlayer().removeMetadata(META_DRILLING, plugin);
         }
 
-        if(event.getPlayer().getGameMode() == GameMode.CREATIVE)
-            return;
-
+        if(event.getPlayer().getGameMode() == GameMode.CREATIVE) return;
         tool.damage(broken_blocks, event.getPlayer());
     }
 
@@ -245,31 +185,22 @@ public final class DrillListener implements Listener {
         }
     }
 
-    /** Проверка пригодности блока для бурения. */
     private boolean canBreak(Block block, ItemStack tool) {
-        BlockData data = block.getBlockData();
-        Material mat = data.getMaterial();
+        Material mat = block.getType();
 
-        // 1) явно запрещённые блоки
+        // Не ломаем бедрок и порталы
         if (UNBREAKABLE.contains(mat)) return false;
 
-        // 2) воздух / «несолидные»
+        // Не ломаем воздух и жидкости
         if (mat.isAir() || !mat.isSolid()) return false;
 
-        // 3) бесконечная или отрицательная твёрдость
-        float hardness = mat.getHardness();
-        if (Float.isInfinite(hardness) || hardness < 0F) return false;
+        // Не ломаем неразрушимые блоки (твёрдость < 0)
+        if (mat.getHardness() < 0F) return false;
 
-        // 4) инструмент не подходит
-        if (!data.isPreferredTool(tool)) return false;
+        // Проверка, что блок вообще можно повредить этим инструментом
+        // (убрана жесткая проверка PreferredTool, чтобы кирка могла ломать землю)
+        if (block.getBlockData().getDestroySpeed(tool, true) <= 0) return false;
 
-        // 5) ненулевая скорость добычи
-        if (data.getDestroySpeed(tool, true) <= 0) return false;
-
-        // 6) Разрешённые блоки (камень, сланец, руды)
-        if (!DRILL_WHITELIST.contains(mat) && !mat.name().endsWith("_ORE")) return false;
-
-        // 7) Проверка, что инструмент достаточно хорош для добычи дропа (tier check)
-        return !block.getDrops(tool).isEmpty();
+        return true;
     }
 }
